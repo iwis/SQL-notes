@@ -1,0 +1,55 @@
+sources of information:
+  5.7. Privileges
+  description of the ALTER DEFAULT PRIVILEGES statement
+
+Roles
+-----
+CREATE ROLE role1 [NOINHERIT]       (CREATE ROLE user1 LOGIN ≡ CREATE USER user1; only roles that have LOGIN attribute can log in to the DB)
+DROP ROLE [IF EXISTS] role1;        (DROP   ROLE user1       ≡ DROP   USER user1)
+    Before dropping user1/role1, you must:
+     - drop all the objects it owns (or reassign their ownership),
+     - revoke any privileges the role has been granted on other objects,
+     - but it isn't necessary to remove role memberships involving the role.
+    The REASSIGN OWNED and DROP OWNED commands can be useful for this purpose; see Section 21.4 in the documentation for more details.
+
+SELECT rolname FROM pg_roles;       - existing roles (also psql \du)
+
+Privileges
+----------
+The creator of an object (aka. the owner) has all privileges for this object.
+
+ALTER DEFAULT PRIVILEGES [FOR ROLE target_role [,...]] [IN SCHEMA schema1 [,...]] abbreviated_grant_or_revoke
+  where abbreviated_grant_or_revoke is one of:
+    GRANT                     <privileges> TO   {user1|role1|PUBLIC} [,...] [WITH GRANT OPTION]
+    REVOKE [GRANT OPTION FOR] <privileges> FROM {user1|role1|PUBLIC} [,...] [CASCADE|RESTRICT]
+  and <privileges> is one of:
+    {{SELECT|INSERT|UPDATE|DELETE|REFERENCES|TRIGGER} [,...] | ALL PRIVILEGES} ON TABLES        - also views
+      USAGE                                                                    ON SEQUENCES
+      EXECUTE                                                                  ON ROUTINES      - procedures and functions; EXECUTE is granted by default to PUBLIC
+    { CREATE|USAGE                                           | ALL PRIVILEGES} ON SCHEMAS
+
+ - it is the counterpart of system privileges in Oracle
+ - I can change default privileges only for objects that will be created by me or by roles that I am a member of
+
+GRANT <privileges> TO {user1|role1|PUBLIC} [,...] [WITH GRANT OPTION]
+  in Postgres the <privileges> can be also one of (it is an extension to the SQL Standard):
+    {{CREATE|USAGE}             [,...] | ALL PRIVILEGES} ON SCHEMA   schema1        - CREATE and USAGE      are granted by default to PUBLIC on public schema
+    {{CREATE|CONNECT|TEMPORARY} [,...] | ALL PRIVILEGES} ON DATABASE database1      - CONNECT and TEMPORARY are granted by default to PUBLIC
+
+Listing privileges in psql:
+  \dp   - display table/view/sequence access privileges; use GRANT/REVOKE             to set them
+  \ddp  - display default privileges                   ; use ALTER DEFAULT PRIVILEGES to set them;
+          an entry is shown for each role (and schema, if applicable) for which the default privilege settings have been changed from the built-in defaults
+
+  \dp                                   Access privileges
+    Schema |      Name       |   Type   |    Access privileges                          | Column privileges | Policies
+   --------+-----------------+----------+-----------------------------------------------+-------------------+----------
+    public | table1          | table    |                                               |                   |
+    public | table2          | table    | postgres=arwdDxt/postgres, role1=r/postgres   |                   |
+    public | view1           | view     | postgres=arwdDxt/postgres, role1=r/postgres   |                   |
+    public | table2_col1_seq | sequence | postgres=rwU/postgres    , user1=rwU/postgres |                   |
+
+  \ddp          Default access privileges
+     Owner   | Schema | Type  |     Access privileges
+   ----------+--------+-------+----------------------------------------------
+    postgres |        | table | postgres=arwdDxt/postgres, role1=ax/postgres

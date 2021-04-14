@@ -1,0 +1,184 @@
+sources of information:
+ - Wikipedia: Database catalog, Database schema, Synonym (database), Tablespace
+ - https://crate.io/docs/sql-99/en/latest/chapters/14.html  - cluster
+   https://crate.io/docs/sql-99/en/latest/chapters/16.html  – catalog
+   https://crate.io/docs/sql-99/en/latest/chapters/17.html  – schema
+ - SQL Standard syntax
+ - "Multiuser environment" chapter in Alex Kriegel's book: "Discovering SQL - A hands-on guide for beginners"
+ - the Postgres documentation:
+     tutorial: 5.9. Schemas
+     descriptions of the following statements: CREATE/DROP {DATABASE|SCHEMA|ROLE|TABLESPACE}, SET ROLE
+ - the MySQL documentation:
+     tutorial: 3.1 "Connecting to and Disconnecting from the Server", 3.3.1 "Creating and Selecting a Database"
+     descriptions of the following statements: CREATE/DROP {DATABASE|ROLE|USER}, SET ROLE
+ - the SQL Server documentation:
+     DB design > DBs > Overview                                     https://docs.microsoft.com/en-us/sql/relational-databases/databases/databases
+     DB design > DBs > How-to guides > Manage > Create a DB         https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database
+     DB design > DBs > Concepts > Management > Files & filegroups   https://docs.microsoft.com/en-us/sql/relational-databases/databases/database-files-and-filegroups
+     Query Data > Synonyms                                          https://docs.microsoft.com/en-us/sql/relational-databases/synonyms/synonyms-database-engine
+     descriptions of the following statements: CREATE/DROP {DATABASE|SCHEMA|SYNONYM}  (DATABASE - only the most important information)
+
+marking: | - SQL Standard
+
+Database
+========
+SQL Standard: A database (aka. catalog) is a collection of schemas containing at least the INFORMATION_SCHEMA schema.
+
+ P      - Put unrelated projects unaware of each other into separate databases. If the projects or users are related, and thus should be able to use each other's resources, then put them in the same DB.
+ P         => a client must specify the DB name when connecting to the DBMS server
+   O    - Oracle has only one DB
+        - built-in system DBs:
+ P          postgres
+ P          template0
+ P          template1           - a template for all new DBs
+  M         mysql               - contains among others grant tables: a) privileges: global (user), DB-level (db), table/column-level (tables/columns_priv), routine (procs_priv), ...
+  M                                                                   b) default user roles (default_roles)
+  M         information_schema
+  M         performance_schema
+  M         sys                 - a convenient access to data in performance_schema
+    S       master              - system-level information
+    S       model               - a template for all new DBs
+    S       msdb                - used by SQL Server Agent for scheduling alerts and jobs
+    S       tempdb              - temporary objects and intermediate result sets
+    S       Resource            - a read-only DB containing system objects that are included with SQL Server; system objects are physically persisted in the Resource DB, but they logically appear in the sys schema of every DB
+
+Creating
+--------
+ PM S   CREATE DATABASE [IF NOT EXISTS] database1;      - see doc for more options; (M: CREATE DATABASE ≡ CREATE SCHEMA; case-sensitive on Linux); "IF NOT EXISTS" - possible only in MySQL
+ P        [[WITH] [OWNER      [=] user1]                - (PS: the user executing the command by default); MySQL has no notion of ownership
+ P                [TABLESPACE [=] tablespace1]];        - (P: the tablespace that will be associated with the new DB, or DEFAULT to use the template database's tablespace; see CREATE TABLESPACE for more information)
+
+Deleting
+--------
+ PM S   DROP DATABASE [IF EXISTS] database1;            - (M: DROP DATABASE ≡ DROP SCHEMA)
+
+Schema
+======
+SQL Standard: A schema is a named group of related objects (tables/views, sequences, procedures/functions, triggers, indexes, synonyms) (O: also packages)
+
+  M     - in MySQL  a schema is a notion identical to a database
+   O    - in Oracle a schema is a notion identical to a user (its owner)
+|P OS   - has an owner; MySQL has no notion of ownership
+|P  S   - one user can own many schemas
+|  O    - a schema owner owns all objects in this schema
+            (P: a schema can contain objects owned by users other than the schema owner)
+            (S: ownership of schema-contained objects can be transferred to any user or DB role (it isn't recommended and is incosistent with the SQL standard!),
+                but the schema owner always has all privileges on objects within the schema)
+
+|PM S   - each DB (M: each DBMS server) has the INFORMATION_SCHEMA schema
+        - other built-in schemas:
+ P          pg_catalog
+ P          public      - default schema; by default, everyone has CREATE and USAGE privileges on this schema
+    S       dbo         - default schema
+
+Creating
+--------
+|P  S   CREATE SCHEMA [IF NOT EXISTS] [schema1] [AUTHORIZATION user1|role1]  - "IF NOT EXISTS" - non-standard and possible only in Postgres; at least one: schema1 or owner; Std: <schema definition>
+|P                                                                             (schema1 = the owner by default in SQL standard and Postgres, but required in SQL Server)
+|P  S                                                                          the owner is by default the current session user
+|P  S   [<schema element> ...]                                               - <schema element> - CREATE {TABLE|VIEW|SEQUENCE|PROCEDURE|FUNCTION|TRIGGER|ROLE|...} ... or GRANT ...
+                                                                                                    (P: no PROCEDURE/FUNCTION/ROLE, but can be also INDEX)
+                                                                                                    (S: possible only: TABLE/VIEW/GRANT/REVOKE/DENY)
+   O    use the CREATE USER     command instead
+  M     use the CREATE DATABASE command instead
+
+Deleting
+--------
+|P  S   DROP SCHEMA [IF EXISTS] schema1 {RESTRICT|CASCADE}                   - "IF EXISTS" - in Postgres and SQL Server, but non-standard; Std: <drop schema statement>
+                                                                               (P: RESTRICT is default) (S: no RESTRICT/CASCADE keywords; always behaves as RESTRICT)
+
+User
+====
+ P      roles and users are the same; shared across the entire DBMS server
+    S   by default create a login firstly and then a DB user in a single DB - see "Access control - SQL Server specifics.txt"
+
+        built-in superusers/admins (they have all privileges):
+ P        postgres
+  M       root
+   O      SYS - see "Access control - Oracle specifics.txt" file
+    S     dbo - "DB owner"; all SQL Server administrators, members of the sysadmin server role, sa login, and owners of the DB, enter DBs as the dbo user
+
+Creating
+--------
+ P      CREATE USER user1 [WITH] PASSWORD 'password1' [NOINHERIT]                  - all roles become active by default when the user connects, "NOINHERIT"        - no roles    become active
+  M     CREATE USER user1 IDENTIFIED BY   'password1' [DEFAULT ROLE role1 [,...]]  - no  roles become active by default when the user connects, "DEFAULT ROLE ..." - roles which become active; basic syntax; user1 ≡ 'user1'@'%'
+   O    CREATE USER user1 IDENTIFIED BY    password1                               - all roles become active by default when the user connects
+
+Deleting
+--------
+ PMO    DROP USER [IF EXISTS] user1 [CASCADE]                                      - "IF EXISTS" - only in Postgres and MySQL; CASCADE - only in Oracle - required if the user's schema contains any objects
+
+Connecting to DBMS server (DBMS server running on localhost; connect through the interactive terminal)
+=========================
+ P      psql    database1 user1                         - connect to the DB                                                                          (prompts for a password)
+   O    sqlplus user1@database1                         - connect to the DB                                                                          (prompts for a password)
+  M     mysql   -u user1 -p [database1]                 - connect to DBMS server                  [and set database1 as default by "USE database1;"] (prompts for a password)
+    S   sqlcmd  -S localhost\SQLEXPRESS [-d database1]  - connect to DBMS server named SQLEXPRESS [and set database1 as default by "USE database1;"]
+                                                          uses Windows Authentication; add "-U login1/user1" to use SQL Server Authentication (prompts for a password)
+
+ P      listing objects in psql ('+' - additional info; S - also system objects, not only user-created objects) - but everything is shown also in pgAdmin:
+ P        tablespaces: \db[+], DBs: \list[+], roles: \du[S+], schemas: \dn[S+]
+
+SET ROLE
+========
+|P      SET ROLE {NONE|role1}
+  MO    SET ROLE {NONE|role1 [,...]|ALL [EXCEPT role1 [,...]]}
+          - sets active roles for the current user in the current session (the roles need to be granted earlier); Std: <set role statement>
+          - SQL Standard: a user doesn't inherit privileges automatically (P: only if he has NOINHERIT attribute)
+          - privileges that the user has been granted directly (rather than through roles) remain unaffected by changes to the active roles
+
+Referencing objects
+===================
+|PMOS   [[database1.]schema1.]table1  (PO: "database1." isn't possible - you must use dblink/link) (M: "schema1." isn't possible)
+           default DB:     (MS: can be set by "USE database1;")
+           default schema: (P: public) (S: dbo)
+
+Synonyms
+========
+ - alias (alternative name) for a table/view, procedure/function (O: also for a sequence, package)
+ - available in Oracle and SQL Server ≥ 2005
+ - non-standard; unavailable in Postgres and MySQL - you can use a view instead of a synonym of a table/view, and create an additional procedure/function instead of a synonym of a procedure/function
+ - purpose:
+    - easy access to objects owned by other users
+    - short names for objects with long names
+
+in Oracle:
+ - private - visible to 1     user (can be created by any authorized user)
+ - public  - visible to every user (very powerful)
+
+creating/deleting a synonym in schema1 (O: a schema and a user are the same concepts):
+   O    CREATE [PUBLIC] SYNONYM             [schema1.]synonym1 FOR             [schema2.]object2;   - schema1/2 - def. the         schema of the current user
+    S   CREATE          SYNONYM             [schema1.]synonym1 FOR [[database2.]schema2.]object2;   - schema1/2 - def. the default schema of the current user; database2 - def. the current DB
+
+   O    DROP   [PUBLIC] SYNONYM             [schema1.]synonym1;
+    S   DROP            SYNONYM [IF EXISTS] [schema1.]synonym1;
+
+Tablespaces
+===========
+ - a storage location where the data are actually kept
+ - available in Postgres, Oracle; filegroup and files are conterparts in SQL Server
+ - purpose:
+    - optimize DB performance e.g. store: a) a heavily used index        on SSD
+                                          b) a table with archieved data on HDD
+ - todo: Oracle (my paper notes are only about default tablespaces)
+
+Postgres
+--------
+CREATE TABLESPACE tablespace1 LOCATION '/ssd1/postgresql/data';   - the location must be an existing, empty directory that is owned by the PostgreSQL OS user;
+                                                                    there is usually not much point in making > 1 tablespace per HDD/SDD;
+                                                                    tables, indexes, and entire DBs can be assigned to particular tablespaces ex: CREATE TABLE table1(col1 int) TABLESPACE tablespace1;
+DROP TABLESPACE [IF EXISTS] tablespace1;                          - removes an empty tablespace
+
+built-in tablespaces:
+ - pg_default - the default tablespace for DBs
+ - pg_global  - used for shared system catalogs
+
+SQL Server
+----------
+DBs are stored in files, and files can be grouped into filegroups (it is tablespace analogue) - see doc
+
+MySQL
+-----
+ - by default (i.e. if innodb_file_per_table is enabled) MySQL creates tables with indexes in file-per-table tablespaces in a separate "table1.ibd" file;
+   use the DATA DIRECTORY clause of the CREATE TABLE statement to implicitly create a file-per-table tablespace data file outside of the data directory - for more info, see Section 15.6.1.2 "Creating Tables Externally"
+ - disabling innodb_file_per_table causes MySQL to create tables in the system tablespace; more tablespaces can be created using the CREATE TABLESPACE statement - see doc

@@ -1,0 +1,26 @@
+Users
+-----
+built-in admin users:
+  SYS    - has DBA role and SYSDBA privilege, thus can do everything; when you log in as SYS user, you must connect to the DB as SYSDBA or SYSOPER
+  SYSTEM - has DBA role; has all privileges except backups, recovery, and DB upgrade; rarely used
+
+Roles
+-----
+built-in:
+  DBA      - has all system privileges WITH ADMIN OPTION, except of SYSDBA and SYSOPER
+  RESOURCE - has the CREATE {TABLE|SEQUENCE|PROCEDURE|TRIGGER} system privileges; every user rather has it
+  CONNECT  - has the CREATE SESSION                            system privilege ; every user rather has it
+
+Selected system privileges
+--------------------------
+{CREATE|DROP|ALTER}               {TABLE|VIEW|SEQUENCE|PROCEDURE|TRIGGER}  - in grantee's schema                   ; "PROCEDURE" - also functions and packages
+{CREATE|DROP|ALTER}           ANY {TABLE|VIEW|SEQUENCE|PROCEDURE|TRIGGER}  - in any schema except of SYS and AUDSYS; "PROCEDURE" - also functions and packages
+{CREATE|DROP}                 ANY SYNONYM                                  - in any schema except of SYS and AUDSYS; private synonyms
+{SELECT|INSERT|UPDATE|DELETE} ANY TABLE                                    - in any schema except of SYS and AUDSYS; tables and views
+SELECT                        ANY SEQUENCE                                 - in any schema except of SYS and AUDSYS
+EXECUTE                       ANY PROCEDURE                                - in any schema except of SYS and AUDSYS; procedures and functions, also and in packages
+CREATE SESSION                                                             - connect to the DB
+UNLIMITED TABLESPACE                                                       - use unlimited amount of any tablespace; overrides any specific quotas assigned
+
+SYSDBA  - permission to perform administrative tasks e.g. start, shut down, create, delete, backup, and recover DB
+SYSOPER - like SYSDBA but without permission to access users' data, and some other restrictions; rarely used

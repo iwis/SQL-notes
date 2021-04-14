@@ -1,0 +1,45 @@
+sources of information:
+ - the most interesting parts of 6.2 "Access Control and Account Management"
+ - descriptions of the GRANT/REVOKE statements
+
+marking: 'todo' - things to check
+
+Users and roles
+---------------
+users and roles names ('%' is the host part and means users/roles connected from any computer):
+ - user name: user1 ≡ 'user1'@'%'
+ - role name: role1 ≡ 'role1'@'%'
+
+"GRANT/REVOKE <privileges> ..."
+-------------------------------
+<privileges> ::= {<action> [,...] | ALL PRIVILEGES} ON priv_level
+
+Privileges for DB objects such as tables/views/routines can be granted for:
+ - specific objects within a DB,
+ - all objects of a given type within a DB            (non-standard; it is the counterpart of system privileges in Oracle),
+ - globally for all objects of a given type in all DB (non-standard; it is the counterpart of system privileges in Oracle).
+
+priv_level ::= [database1.]table1   - table-level   for table1   in the given (or default) DB
+             | [database1.]routine1 - routine-level for routine1 in the given (or default) DB
+             | [database1.]*        - DB-level      for             the given (or default) DB; they apply to all      tables/views/columns/routines
+             |          *.*         - global-level                                           ; they apply to all DBs, tables/views/columns/routines
+
+Possible <action>s for
+ - tables:   SELECT/INSERT/UPDATE/DELETE/REFERENCES/TRIGGER, CREATE/DROP/ALTER, CREATE VIEW, GRANT OPTION, ...
+ - routines: EXECUTE,                                        CREATE/ALTER ROUTINE,           GRANT OPTION
+
+Other info:
+ - table-level privileges apply to base tables and views
+ - ALL PRIVILEGES means all privileges except of GRANT OPTION (todo: compare it with the SQL Standard and other DBMSs);
+   "REVOKE ALL PRIVILEGES, GRANT OPTION FROM user1/role1" drops all global, DB, table, column, and routine privileges for the named users or roles
+ - you can grant one set of privileges for connections by joe from office.example.com, and a different set of privileges for connections by joe from home.example.com
+
+SHOW GRANTS FOR user1;                              - privileges and roles granted to user accounts and roles
+
+SET PERSIST mandatory_roles = 'role1,role2,...';    - roles granted to all users; don't take effect until activated, like explicitly granted roles;
+                                                      todo: is it a counterpart of the "GRANT ... TO PUBLIC" in SQL Standard?
+
+When privilege changes take effect? A grant table reload affects privileges for each existing client session as follows:
+ - table  privilege changes take effect with the client's next request
+ - DB     privilege changes take effect the next time the client executes a USE database1 statement
+ - global privilege changes take effect in subsequent connections sessions

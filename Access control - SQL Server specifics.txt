@@ -1,0 +1,104 @@
+sources of information:
+ - Security > Security (https://docs.microsoft.com/en-us/sql/relational-databases/security/security-center-for-sql-server-database-engine-and-azure-sql-database)
+ - Security > How-to > Authentication Access > Create: a login, a DB user, a DB schema, a server role
+   (https://docs.microsoft.com/en-us/sql/relational-databases/security/authentication-access/create-a-login)
+ - Security > Concepts > Authentication Access > Authentication Access, Principals, Server-Level Roles, DB-Level Roles, Securables,
+                                                 Contained DB Users, Authentication Mode, Permissions, Permissions Hierarchy
+   (https://docs.microsoft.com/en-us/sql/relational-databases/security/authentication-access/getting-started-with-database-engine-permissions)
+ - Reference > T-SQL Reference > Statements > CREATE > LOGIN, SERVER ROLE, USER, ROLE  (LOGIN, USER - only the most important information)
+ - Reference > T-SQL Reference > Statements > Permissions > GRANT Database/Schema/Object Permissions
+
+marking: | - SQL Standard
+
+Access control
+==============
+authentication modes:
+  Windows Authentication - disables SQL Server Authentication (admin account sa is disabled)
+  Mixed                  - enables  SQL Server Authentication and Windows Authentication
+
+Windows Authentication:
+ - default authentication mode, more secure than SQL Server Authentication; use it when possible
+ - trusted credentials - because SQL Server trusts the credentials provided by Windows (there are counterparts in other DBMSs)
+ - user identity is confirmed by Windows
+
+A login is the identity of the person/process that is connecting to DBMS instance.
+To connect to a DB on the DBMS instance, a login must be mapped to a DB user.
+
+SQL Server has also possibility of row-level security.
+
+Creating users
+--------------
+  // 1. users based on central logins in the DBMS installation - most often used
+  CREATE LOGIN [DOMAIN1\User1] FROM WINDOWS  [WITH DEFAULT_DATABASE = database1]  - Windows    Authentication; def. master DB; the [] is part of syntax in "[DOMAIN1\User1]"
+  CREATE LOGIN user1 WITH PASSWORD = 'pass1' [,    DEFAULT_DATABASE = database1]  - SQL Server Authentication; def. master DB
+  USE database1
+  CREATE USER  name [{FOR|FROM} LOGIN name]  [WITH DEFAULT_SCHEMA = schema1]  - the name is [DOMAIN1\User1] or user1 (i.e. authenticated by Windows or SQL Server); FOR ≡ FROM
+                                                                                no "FOR LOGIN" => the new DB user is mapped to the SQL Server login with the same name
+
+  // 2. users authenticating at the DB (without separate login on the DBMS installation) - makes a DB more portable; disabled by default; see doc
+  USE database1
+  CREATE USER  [DOMAIN1\User1]               [WITH DEFAULT_SCHEMA = schema1]  - Windows    Authentication
+  CREATE USER  user1 WITH PASSWORD = 'pass1' [,    DEFAULT_SCHEMA = schema1]  - SQL Server Authentication
+
+    DEFAULT_SCHEMA - the 1st schema that will be searched by the DBMS when it resolves the names of objects for this DB user; def. dbo
+
+  DROP LOGIN             user1   - a login that owns any object cannot be dropped
+  DROP USER  [IF EXISTS] user1   - a user  that owns any object cannot be dropped
+
+Roles
+-----
+ - server-level roles
+    - can be assigned to a login
+    - cannot be granted permissions on DB-level objects
+    - built-in:
+       sysadmin - can perform any activity in the DBMS
+       public   - every login belongs to it
+       ...
+    - creating/deleting:
+        USE master;
+        CREATE SERVER ROLE server_role1
+        DROP   SERVER ROLE server_role1
+    - adding/deleting logins:
+        ALTER SERVER ROLE server_role1 {ADD|DROP} MEMBER {login2|server_role2}
+    - GRANT/REVOKE - configure the server-level permissions of the server role
+ - DB-level
+    - creating/deleting (in the current DB):
+|       CREATE ROLE role1
+|       DROP ROLE [IF EXISTS] role1   - "IF EXISTS" is non-standard
+    - built-in:
+       db-owner - has the "CONTROL DATABASE" privilege
+|      public   - every DB user belongs to it
+
+GRANT/REVOKE
+------------
+Permissions are managed at:
+ - the server level through logins and server roles
+ - the DB     level through users  and DB     roles
+
+GRANT <privileges> TO {DB_user|DB_role} [,...] [WITH GRANT OPTION]
+  <privileges> ::= permission [,...]                                  - 1. DB     permissions (it is the counterpart of system privileges in Oracle)
+                 | permission [,...] ON  SCHEMA::schema1              - 2. schema permissions (it is the counterpart of system privileges in Oracle)
+                 | permission [,...] ON [OBJECT::][schema1.]object1   - 3. object permissions
+                                                                           (if schema1 isn't specified, the default schema is used;
+                                                                            if schema1 is    specified, the OBJECT phrase is optional)
+
+123 Selected privileges (an arrow means that one privilege results from the other privilege):
+      DB permissions                                         schema permissions                            object permissions
+      ----------------------------------------------------------------------------------------------------------------------------------------------
+      CONTROL                                            ->  CONTROL                                   ->  CONTROL
+      ├> ALTER                                               │                                             │
+      │  ├> ALTER ANY SCHEMA                             ->  ├> ALTER                                  ->  ├> ALTER
+      │  │  └> CREATE SCHEMA                                 │  │                                          │
+      │  └> CREATE TABLE/VIEW/PROCEDURE/FUNCTION/SYNONYM     │  └> CREATE SEQUENCE                         │
+      ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES          ->  ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES ->  ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES (on a table/view)
+      ├> EXECUTE                                         ->  └> EXECUTE                                ->  └> EXECUTE                                (on a procedure/function)
+      └> CONNECT
+
+123 "ALL PRIVILEGES" is deprecated in SQL Server - use the CONTROL permission instead (it gives all other permissions on the object)
+12  ALTER            - it also gives the permission to CREATE/ALTER/DROP any contained objects
+1   ALTER ANY SCHEMA - the permission to CREATE/ALTER/DROP any schema in the DB
+
+to drop an object (e.g. a table)             you must have the ALTER permission on the schema or the CONTROL permission on the object
+to create or alter a trigger on a table/view you must have the ALTER permission on the table/view
+
+object owners can delete them, but don't have full permissions on them

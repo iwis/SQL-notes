@@ -1,0 +1,141 @@
+Scalar SQL functions in SQL Standard and their implementations in popular RDBMS
+===============================================================================
+Description:
+ - I described probably all scalar functions from the SQL Standard and some other scalar functions implemented often in RDBMS. I haven't described
+   functions returning current date and/or time.
+ - I tried to make the descriptions of the functions concise but also comprehensive and complete. This means that there should be no surprising
+   additional information in the RDBMS documentations.
+ - PostgreSQL implements the SQL standard most closely.
+
+I use general marking described in the README.md file and additionally the following marking:
+      | - SQL Standard (used on the left margin)
+    str - a character string, e.g. s, s2, c
+   bstr - a binary    string, e.g. bs
+    num - a number          , e.g. x, y
+    int - an integer number , e.g. start, length (positions indexed from 1 - Standard SQL & PMOSL)
+   → .. - character denoting the result of a function; type of the result is also written on the left margin e.g. int POSITION (s2 IN s)
+
+String functions (case-sensitive, except SQL Server and the POSITION()/INSTR() functions in MySQL,
+----------------  see https://stackoverflow.com/questions/64919967/when-is-comparing-strings-case-sensitive-and-when-case-insensitive-in-sql later)
+ |P     The TRIM, SUBSTRING, POSITION & OVERLAY functions can be also called on a binary string: positions & lengths of strings are then given in bytes, not in characters.
+
+ |PM    int CHAR[ACTER]_LENGTH(s)                 number of characters; (POL: ≡ LENGTH(s)) (S: ≡ LEN(s))
+ |PM    int OCTET_LENGTH(s|bs)                    number of bytes; (PL: for bstr ≡ LENGTH(bs)) (M: ≡ LENGTH(s|bs)) (O: ≡ LENGTHB(s|bs)) (S: ≡ DATALENGTH(s|bs))
+ |PMOSL str UPPER/LOWER(s)                        also for non-ASCII; (P: according to DB locale) (M: according to current character set mapping)
+                                                                      (SL & MariaDB: see doc for non-ASCII)   (O: see also NLS_{UPPER|LOWER}(...))
+  P O   str INITCAP  (s)                          upper case 1st letter of each word and lower case the rest  (O: see also NLS_INITCAP      (...))
+ |PMO   str TRIM     ([[LEADING|TRAILING|BOTH]    removes leading and/or trailing c characters from s; def.: BOTH ' ' FROM; (PL: ≡ [L|R]TRIM(s [,c]))
+                       [c] FROM] s)                          (O: also {L|R}TRIM(s [,c])) (M: also [L|R]TRIM(s) removing ' ') (S: ≡ [L|R]TRIM([c FROM] s))
+  PMO   str {L|R}PAD (s, length [,c])             extends s to length by prepending/appending c characters (def. ' '); s is longer than length => truncate s at the end;
+                                                                                                                       (M: c is required)
+ |PM    str SUBSTRING(s FROM start [FOR length])  substring from 'start' position [and not longer than 'length']; (PM: ≡ SUBSTR[ING](s, start [,length]))
+                                                                                                                  (OL: ≡ SUBSTR     (s, start [,length]))
+                                                                                                                  (S:  ≡ SUBSTRING  (s, start  ,length ))
+                                                  todo: also regexp: https://crate.io/docs/sql-99/en/latest/chapters/07.html#regular-expression-substring-function & Postgres
+ |PM    int POSITION (s2 IN s)                    position of 1st          occurrence of s2 in s                                        ; s2 doesn't occur in s => 0
+   MO L int INSTR    (s, s2 [,start=1 [,n=1]])    position of n-th (n ≥ 1) occurrence of s2 in s, starting searching from start position; s2 doesn't occur in s => 0;
+                                                  (O: start < 0 => start is counted from the end of s, and searches backwards)
+                                                  (ML: only default start & n) (S: ≡ CHARINDEX(s2, s [,start=1]))
+
+  PMOSL str REPLACE  (s, str from, str to)        replaces all occurrences of from with to; e.g. REPLACE('abcdef abcdef', 'cd', 'XX') → 'abXXef abXXef'
+                                                  (S: s isn't of type [n]varchar(max) => truncates the result at 8000 B; todo: how is it in other RDBMS?)
+  P OS  str TRANSLATE(s, str from, str to)        replaces all occurrences of each character in from by its corresponding character in to;
+                                                  if from is longer than to, the extra characters at the end of from, are deleted in s;
+                                                  e.g. TRANSLATE('12345', '143', 'ax') → a2x5
+                                                  (O: the to cannot be '' - see doc how to remove all characters in from)
+                                                  (S: from and to must have the same length)
+
+ |P     str OVERLAY  (s PLACING s2 FROM start     replaces substring of s, specified by 'start' position and 'length' (def. CHAR_LENGTH(s2)), by s2;
+                      [FOR length])               length = 0 => nothing is removed from s, only inserts s2 into s at 'start' position;
+                                                  ≡ SUBSTRING(s FROM 1 FOR start - 1) || s2 || SUBSTRING(s FROM start + length)
+                                                  (M: ≡ INSERT(s, start, length, s2))
+                                                  (S: ≡ STUFF (s, start, length, s2))
+
+other (very rarely implemented):
+ |          NORMALIZE(...)
+ |      str TRANSLATE(s USING <transliteration name>)
+ |      str CONVERT  (s USING <transcoding name>)
+ |      str SUBSTRING(s SIMILAR s2 ESCAPE <escape character>)  - matching regexp
+
+Mathematical functions
+----------------------
+If the argument is outside the function domain e.g. SQRT(-1), LN(-1), ACOS(2), then (SQL Standard and POS: raise error) (ML: return NULL).
+
+  PMO L num ROUND    (x [,s=0])             rounds    x to s decimal places (towards the closest digit)      (S: different syntax)
+  P O L num TRUNC    (x [,s=0])             truncates x to s decimal places (towards 0); (M: TRUNCATE(x, s)) (S: see ROUND()) (L: no s argument)
+ |PMOSL int FLOOR    (x)
+ |PMOSL int CEIL[ING](x)                    (O: only CEIL) (S: only CEILING)
+
+ |PMOSL num ABS      (x)
+  PMOSL num SIGN     (x)                    sign of x (-1, 0, or 1)
+ |PMO L int MOD      (int x, int y)         division remainder; (PM SL: ≡ x % y)
+
+ |PMOSL num POWER    (x, y)                 raises x to the power y
+ |PMOSL num EXP      (x)                    raises e to the power x
+ |PMOSL num SQRT     (x)
+ |PMO L num LOG      (b, x)                 (S: LOG(x [,b=e]))
+ |PM SL num LOG10    (x)                    base 10 logarithm of x
+ |PMO L num LN       (x)                    natural logarithm of x, i.e. base e logarithm of x
+
+ |PMOSL num [A]{SIN|COS|TAN}[H](x)          in radians; no A{SIN|COS|TAN}H in SQL Standard; (MS: no hyperbolic functions)
+  PM SL num DEGREES  (x)                    converts radians to degrees
+  PM SL num RADIANS  (x)                    converts degrees to radians
+  PM SL num PI()                            π
+
+ |P O   int WIDTH_BUCKET(...)               todo: I didn't read about it
+
+Functions and operators operating on time types
+-----------------------------------------------
+  description: timestamp, date, time, interval - types defined in SQL Standard
+               datetime - timestamp, date, or time type
+               DATE     - Oracle's DATE type which corresponds the TIMESTAMP of the SQL Standard with fixed precision;
+                          Oracle doesn't provide separate time and date types
+
+ |PMO   num EXTRACT({YEAR|MONTH|DAY|HOUR|MINUTE|      the part of date, time, timestamp or interval;
+                     SECOND|TIMEZONE_{HOUR|MINUTE}}   (P also: ISODOW - day of week (1-7), DOY - day of year (1–365/366))
+                    FROM datetime/interval)           (M: not TIMEZONE_..., not for interval)
+                                                      (O: for HOUR|MINUTE|SECOND, expr cannot be DATE, because Oracle treats it as ANSI DATE data type)
+ |          ABS    (interval)                         absolute value of interval
+
+ |P O   interval ± interval → interval       year-month interval ± day-time interval => error, because it isn't
+                                             known how many days a month have: 31, 30, 29, 28? (Postgres: you can)
+ |P O   interval */ number  → interval       * or /
+ |P     - interval          → interval
+
+ |PMO   timestamp ± interval  → timestamp    error if incorrect result, e.g. 2004-09-31 (PM: no error); (O also: DATE ± interval → DATE)
+ |PM    date      ± interval  → timestamp
+ |PM    time      ± interval  → time         modulo 24h (not in MySQL)
+
+ |P O   timestamp - timestamp → interval     (O: also DATE - timestamp → interval, timestamp - DATE → interval)
+ |      date      - date      → interval
+ |P     time      - time      → interval
+
+  P     date      ± integer   → date         add/subtract number of days to/from a date, e.g. date '2001-09-28' + 7 → 2001-10-05
+  P     date      - date      → integer      elapsed number of days,                     e.g. date '2001-10-05' - date '2001-09-28' → 7
+
+  P     date      + time      → timestamp    date '2001-09-28' + time '03:00' → 2001-09-28 03:00:00
+
+    O   {timestamp|DATE} ± number → DATE     add/subtract number of days to/from a date (it can be a fraction)
+    O   DATE - DATE → number                 elapsed number of days (it can be a fraction)
+
+Regular expression functions (SQL:2008 standard; no major RDBMS including Postgres implements them in 2020 year)
+----------------------------
+ |      int OCCURRENCES_REGEX(        pattern [FLAG option] IN s                    [FROM start])
+ |      str SUBSTRING_REGEX  (        pattern [FLAG option] IN s                    [FROM start] [OCCURRENCE n=1] [GROUP g=0])
+ |      int POSITION_REGEX   ([AFTER] pattern [FLAG option] IN s                    [FROM start] [OCCURRENCE n=1] [GROUP g=0])
+ |      str TRANSLATE_REGEX  (        pattern [FLAG option] IN s [WITH replacement] [FROM start] [OCCURRENCE n=ALL])
+ |
+ |      These 4 functions search s [starting from given start position, ≥ 1] for given XQuery regular expression pattern string,
+ |      using given XQuery option flag (default ''), and return:
+ |        for OCCURRENCES_REGEX: number of occurrences; if start is out of s range => returns –1                                                ; not found => 0
+ |        for SUBSTRING_REGEX:   n-th occurrence of matching substring (if g = 0) or g-th parenthesized regex capture group within it (if g > 0); not found => NULL
+ |        for POSITION_REGEX:    beginning position (or end position + 1) of string returned by SUBSTRING_REGEX() called with the same arguments; not found => 0
+ |        for TRANSLATE_REGEX:   s with all occurences (default) or n-th occurrence replaced by given XQuery replacement string (def. '')       ; not found => s;
+ |                               if start is out of s range => NULL
+ |      The pattern matches special characters: ^, $, ., \s (whitespace character), and \S (not whitespace character) additionally to XQuery.
+
+        Oracle has similar REGEXP_{COUNT|SUBSTR|INSTR|REPLACE}(...) functions.
+
+Other functions
+---------------
+ |      str <user-defined type value expression>.SPECIFICTYPE[()]     - todo: what is it for?; SQL Standard: <specific type method>
