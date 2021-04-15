@@ -32,8 +32,8 @@ Creating users
   CREATE LOGIN [DOMAIN1\User1] FROM WINDOWS  [WITH DEFAULT_DATABASE = database1]  - Windows    Authentication; def. master DB; the [] is part of syntax in "[DOMAIN1\User1]"
   CREATE LOGIN user1 WITH PASSWORD = 'pass1' [,    DEFAULT_DATABASE = database1]  - SQL Server Authentication; def. master DB
   USE database1
-  CREATE USER  name [{FOR|FROM} LOGIN name]  [WITH DEFAULT_SCHEMA = schema1]  - the name is [DOMAIN1\User1] or user1 (i.e. authenticated by Windows or SQL Server); FOR ≡ FROM
-                                                                                no "FOR LOGIN" => the new DB user is mapped to the SQL Server login with the same name
+  CREATE USER  name [{FOR|FROM} LOGIN name]  [WITH DEFAULT_SCHEMA = schema1] - the name is [DOMAIN1\User1] or user1 (i.e. authenticated by Windows or SQL Server); FOR ≡ FROM
+                                                                               no "FOR LOGIN" => the new DB user is mapped to the SQL Server login with the same name
 
   // 2. users authenticating at the DB (without separate login on the DBMS installation) - makes a DB more portable; disabled by default; see doc
   USE database1
@@ -83,15 +83,15 @@ GRANT <privileges> TO {DB_user|DB_role} [,...] [WITH GRANT OPTION]
                                                                             if schema1 is    specified, the OBJECT phrase is optional)
 
 123 Selected privileges (an arrow means that one privilege results from the other privilege):
-      DB permissions                                         schema permissions                            object permissions
-      ----------------------------------------------------------------------------------------------------------------------------------------------
-      CONTROL                                            ->  CONTROL                                   ->  CONTROL
-      ├> ALTER                                               │                                             │
-      │  ├> ALTER ANY SCHEMA                             ->  ├> ALTER                                  ->  ├> ALTER
-      │  │  └> CREATE SCHEMA                                 │  │                                          │
-      │  └> CREATE TABLE/VIEW/PROCEDURE/FUNCTION/SYNONYM     │  └> CREATE SEQUENCE                         │
-      ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES          ->  ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES ->  ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES (on a table/view)
-      ├> EXECUTE                                         ->  └> EXECUTE                                ->  └> EXECUTE                                (on a procedure/function)
+      DB permissions                                        schema permissions                           object permissions
+      --------------------------------------------------------------------------------------------------------------------------------------------
+      CONTROL                                            -> CONTROL                                   -> CONTROL
+      ├> ALTER                                              │                                            │
+      │  ├> ALTER ANY SCHEMA                             -> ├> ALTER                                  -> ├> ALTER
+      │  │  └> CREATE SCHEMA                                │  │                                         │
+      │  └> CREATE TABLE/VIEW/PROCEDURE/FUNCTION/SYNONYM    │  └> CREATE SEQUENCE                        │
+      ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES          -> ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES -> ├> SELECT/INSERT/UPDATE/DELETE/REFERENCES (on a table/view)
+      ├> EXECUTE                                         -> └> EXECUTE                                -> └> EXECUTE                                (on a procedure/function)
       └> CONNECT
 
 123 "ALL PRIVILEGES" is deprecated in SQL Server - use the CONTROL permission instead (it gives all other permissions on the object)
