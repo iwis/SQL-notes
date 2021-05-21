@@ -4,7 +4,8 @@ The repository contains notes about parts of SQL that differ the most in **Postg
  - access control,
  - triggers (I didn't describe triggers in SQL Server, because their syntax differs significantly from other DBMSs),
  - sequences,
- - paging the result of a SELECT query.
+ - paging the result of a SELECT query,
+ - query optimization (indexes and query execution plan).
 
 The notes are quite complete. At the same time, they are concise, because I wrote information common for all DBMS, and marked the differences.
 
@@ -43,6 +44,12 @@ Sources of information:
  - [syntax](https://jakewheat.github.io/sql-overview/sql-2016-foundation-grammar.html#_12_access_control) in the SQL Standard and its [description](https://crate.io/docs/sql-99/en/latest/chapters/15.html),
  - the tutorials and documentations of PostgreSQL, MySQL, Oracle, and SQL Server,
  - [Security: Access Rights in SQL](http://users.informatik.uni-halle.de/~brass/db06/db_secur.pdf) slides (they are available also in https://web.archive.org/).
+
+# Query optimization
+Sources of information:
+ - Wikipedia articles about [indexes](https://en.wikipedia.org/wiki/Database_index) and [query plans](https://en.wikipedia.org/wiki/Query_plan),
+ - PostgreSQL, MySQL, SQL Server, and SQLite documentation about indexes. I only read the most essential information in the SQL Server documentation. I already knew how indexes work in Oracle, so I haven't read Oracle documentation.
+ - [use-the-index-luke.com/sql/explain-plan](https://use-the-index-luke.com/sql/explain-plan) and subpages.
 
 # Symbols and marking used in the notes
 The following marking are used in the notes:
